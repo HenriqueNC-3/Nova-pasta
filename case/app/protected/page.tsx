@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 type Projeto = {
   projeto_id: number;
   nome_projeto: string;
+  nome_cliente: string;
+  descricao: string;
+  prazo: string;
+  status: string;
+  orcamento: number;
 };
 
 export default function ProtectedPage() {
@@ -17,13 +21,15 @@ export default function ProtectedPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [funcionarioNome, setFuncionarioNome] = useState<string | null>(null);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [abrindo, setAbrindo] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchUserAndData = async () => {
       setLoading(true);
 
-      // Pega o usuário logado
+      // 🔒 Verifica usuário logado
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData?.user) {
         router.push("/auth/login");
@@ -33,7 +39,7 @@ export default function ProtectedPage() {
       const email = userData.user.email;
       setUserEmail(email ?? null);
 
-      // Busca o funcionário pelo e-mail
+      // 👤 Busca funcionário pelo e-mail
       const { data: funcionario, error: funcError } = await supabase
         .from("cadastro_funcionarios")
         .select("id, nome")
@@ -48,7 +54,7 @@ export default function ProtectedPage() {
 
       setFuncionarioNome(funcionario.nome);
 
-      // Busca os relacionamentos na tabela projeto_funcionarios
+      // 🔗 Busca os relacionamentos na tabela projeto_funcionarios
       const { data: relacoes, error: relError } = await supabase
         .from("projeto_funcionarios")
         .select("projeto_id")
@@ -67,10 +73,10 @@ export default function ProtectedPage() {
         return;
       }
 
-      // Busca os projetos correspondentes
+      // 📦 Busca os projetos correspondentes
       const { data: projetosData, error: projError } = await supabase
         .from("projetos")
-        .select("projeto_id, nome_projeto")
+        .select("*")
         .in("projeto_id", projetoIds);
 
       if (projError) {
@@ -85,6 +91,22 @@ export default function ProtectedPage() {
     fetchUserAndData();
   }, [router, supabase]);
 
+  // 👁️ Função para abrir/fechar os detalhes do projeto
+  const handleVerDetalhes = (projeto: Projeto) => {
+    if (projetoSelecionado?.projeto_id === projeto.projeto_id) {
+      // Se já estiver aberto, fecha
+      setProjetoSelecionado(null);
+      setAbrindo(null);
+    } else {
+      // Abre novo projeto
+      setAbrindo(projeto.projeto_id);
+      setTimeout(() => {
+        setProjetoSelecionado(projeto);
+        setAbrindo(null);
+      }, 300);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen text-yellow-700 font-bold">
@@ -94,7 +116,7 @@ export default function ProtectedPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B2C48] flex flex-col items-center justify-start p-6">
+    <main className="min-h-screen flex flex-col items-center justify-start p-6">
       <div className="bg-[#E8BE4D] w-full max-w-4xl rounded-xl p-10 text-center shadow-lg">
         <h1 className="text-4xl font-bold mb-4 text-white">
           Olá, Bem-Vindo(a){funcionarioNome ? `, ${funcionarioNome}` : ""}!
@@ -103,16 +125,43 @@ export default function ProtectedPage() {
           Aqui estão os seus projetos
         </p>
 
-        <div className="flex flex-col gap-4 items-center">
+        <div className="flex flex-col gap-6 items-center w-full">
           {projetos.length > 0 ? (
             projetos.map((projeto) => (
-              <Link
+              <div
                 key={projeto.projeto_id}
-                href={`/projetos/${projeto.projeto_id}`}
-                className="w-64 bg-white text-yellow-700 font-semibold py-3 rounded-lg shadow hover:opacity-90 transition"
+                className="w-full bg-white rounded-lg shadow-lg overflow-hidden"
               >
-                {projeto.nome_projeto}
-              </Link>
+                <button
+                  onClick={() => handleVerDetalhes(projeto)}
+                  className="w-full bg-white text-yellow-700 font-semibold py-3 hover:bg-yellow-50 transition"
+                >
+                  {projeto.nome_projeto}
+                </button>
+
+                {projetoSelecionado?.projeto_id === projeto.projeto_id && (
+                  <div
+                    className={`bg-[#0B2C48] text-white p-6 text-left transition-all duration-300 ${
+                      abrindo === projeto.projeto_id ? "opacity-0" : "opacity-100"
+                    }`}
+                  >
+                    <p><strong>Cliente:</strong> {projeto.nome_cliente}</p>
+                    <p><strong>Descrição:</strong> {projeto.descricao}</p>
+                    <p>
+                      <strong>Prazo:</strong>{" "}
+                      {new Date(projeto.prazo).toLocaleDateString("pt-BR")}
+                    </p>
+                    <p><strong>Status:</strong> {projeto.status}</p>
+                    <p>
+                      <strong>Orçamento:</strong> R${" "}
+                      {projeto.orcamento.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                )}
+              </div>
             ))
           ) : (
             <p className="text-white">Nenhum projeto atribuído a você ainda.</p>
