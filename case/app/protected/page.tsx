@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Projeto = {
-  id: string;
+  projeto_id: number;
   nome_projeto: string;
 };
 
@@ -23,6 +23,7 @@ export default function ProtectedPage() {
     const fetchUserAndData = async () => {
       setLoading(true);
 
+      // Pega o usuário logado
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData?.user) {
         router.push("/auth/login");
@@ -32,47 +33,52 @@ export default function ProtectedPage() {
       const email = userData.user.email;
       setUserEmail(email ?? null);
 
-      // Buscar funcionário com base no e-mail
-      const { data: funcionario, error: funcionarioError } = await supabase
+      // Busca o funcionário pelo e-mail
+      const { data: funcionario, error: funcError } = await supabase
         .from("cadastro_funcionarios")
         .select("id, nome")
         .eq("email", email)
         .single();
 
-      if (funcionarioError || !funcionario) {
-        console.error("Funcionário não encontrado:", funcionarioError);
+      if (funcError || !funcionario) {
+        console.error("Funcionário não encontrado:", funcError);
         router.push("/auth/login");
         return;
       }
 
       setFuncionarioNome(funcionario.nome);
 
-      // Buscar projetos do funcionário
-      const { data: projetosData, error: projetosError } = await supabase
+      // Busca os relacionamentos na tabela projeto_funcionarios
+      const { data: relacoes, error: relError } = await supabase
         .from("projeto_funcionarios")
-        .select("projetos(id, nome_projeto)")
+        .select("projeto_id")
         .eq("funcionario_id", funcionario.id);
 
-      if (projetosError) {
-        console.error("Erro ao buscar projetos:", projetosError);
+      if (relError) {
+        console.error("Erro ao buscar relações:", relError);
         return;
       }
 
-type ProjetoData = {
-  projetos: {
-    id: string;
-    nome_projeto: string;
-  } | null;
-};
+      const projetoIds = relacoes.map((r) => r.projeto_id);
 
-const listaProjetos =
-  (projetosData as ProjetoData[] | null)?.map((p) => ({
-    id: p.projetos?.id ?? "",
-    nome_projeto: p.projetos?.nome_projeto ?? "Projeto sem nome",
-  })) || [];
+      if (projetoIds.length === 0) {
+        setProjetos([]);
+        setLoading(false);
+        return;
+      }
 
+      // Busca os projetos correspondentes
+      const { data: projetosData, error: projError } = await supabase
+        .from("projetos")
+        .select("projeto_id, nome_projeto")
+        .in("projeto_id", projetoIds);
 
-      setProjetos(listaProjetos);
+      if (projError) {
+        console.error("Erro ao buscar projetos:", projError);
+        return;
+      }
+
+      setProjetos(projetosData || []);
       setLoading(false);
     };
 
@@ -101,8 +107,8 @@ const listaProjetos =
           {projetos.length > 0 ? (
             projetos.map((projeto) => (
               <Link
-                key={projeto.id}
-                href={`/projetos/${projeto.id}`}
+                key={projeto.projeto_id}
+                href={`/projetos/${projeto.projeto_id}`}
                 className="w-64 bg-white text-yellow-700 font-semibold py-3 rounded-lg shadow hover:opacity-90 transition"
               >
                 {projeto.nome_projeto}
@@ -116,4 +122,3 @@ const listaProjetos =
     </main>
   );
 }
-
