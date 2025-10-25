@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import Banner from "@/components/banner";
 
 type Projeto = {
   projeto_id: number;
@@ -117,6 +118,9 @@ export default function ProtectedPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-start p-6">
+      <div className="fixed top-0 left-0 w-full z-50">
+      <Banner />
+      </div>
       <div className="bg-[#E8BE4D] w-full max-w-4xl rounded-xl p-10 text-center shadow-lg">
         <h1 className="text-4xl font-bold mb-4 text-white">
           Olá, Bem-Vindo(a){funcionarioNome ? `, ${funcionarioNome}` : ""}!
