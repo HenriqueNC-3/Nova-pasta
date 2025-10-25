@@ -4,8 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UsuarioFormProps {
-  setores: { id: string; nome: string }[]; 
-  onUsuarioAdicionado: () => void;        
+  setores: { id: string; nome: string }[];
+  onUsuarioAdicionado: () => void;
 }
 
 export function UsuarioForm({ setores, onUsuarioAdicionado }: UsuarioFormProps) {
@@ -24,37 +24,44 @@ export function UsuarioForm({ setores, onUsuarioAdicionado }: UsuarioFormProps) 
       return;
     }
 
-    // 1️⃣ Criar o usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: senha,
-    });
+    try {
+      // 1️⃣ Criar usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: senha,
+      });
 
-    if (authError) {
-      alert("Erro ao criar autenticação do usuário: " + authError.message);
-      return;
-    }
+      if (authError) {
+        alert("Erro ao criar usuário no Auth: " + authError.message);
+        return;
+      }
 
-    // 2️⃣ Inserir dados na tabela `cadastro_funcionarios`
-    const { error: dbError } = await supabase
-      .from("cadastro_funcionarios")
-      .insert([{ 
-        nome, 
-        email, 
-        senha, // opcional, se você quiser guardar a senha em texto? (não recomendado)
-        setor_id: setorId,
-        auth_id: authData.user?.id // salvar o ID do Auth se quiser linkar
-      }]);
+      // 2️⃣ Inserir usuário na tabela `cadastro_funcionarios`
+      const { error: dbError } = await supabase
+        .from("cadastro_funcionarios")
+        .insert([{
+          nome,
+          email,
+          senha,      // ⚠️ opcional, inseguro em produção
+          setor_id: setorId
+        }]);
 
-    if (dbError) {
-      alert("Erro ao adicionar usuário na tabela: " + dbError.message);
-    } else {
-      alert("Usuário adicionado com sucesso!");
+      if (dbError) {
+        alert("Erro ao salvar usuário na tabela: " + dbError.message);
+        return;
+      }
+
+      // Resetar form
       setNome("");
       setEmail("");
       setSenha("");
       setSetorId("");
       onUsuarioAdicionado();
+
+      alert("Usuário criado com sucesso!");
+    } catch (err) {
+      console.error("Erro ao criar usuário:", err);
+      alert("Ocorreu um erro inesperado.");
     }
   };
 
@@ -110,3 +117,4 @@ export function UsuarioForm({ setores, onUsuarioAdicionado }: UsuarioFormProps) 
     </div>
   );
 }
+
